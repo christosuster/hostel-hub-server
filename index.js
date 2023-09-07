@@ -35,7 +35,7 @@ async function run() {
     const paymentCollection = database.collection("payments");
     const noticeCollection = database.collection("notices");
 
-    // user post api
+    // Create user
     app.post("/users-data", async (req, res) => {
       const cursor = await usersCollection.insertOne(req.body);
       res.json(cursor);
@@ -258,7 +258,7 @@ async function run() {
       res.json(cursor);
     });
 
-    // payment information by user id
+    // get payment information by user id
     app.get("/payments/:uid", async (req, res) => {
       const uid = req.params.uid;
       const query = { uid: uid };
@@ -273,48 +273,57 @@ async function run() {
       res.json(payments);
     });
 
-    // for getting all payments
-    //ISSUE: SETS ALL DUE TO 0
-    app.put("/payments", async (req, res) => {
-      const paymentID = req.body.id;
-      const amount = req.body.amount;
-      const paymentType = req.body.amount;
-      let time = new Date();
-      const currentTime = time.toLocaleString("en-US", {
-        hour: "numeric",
-        minute: "numeric",
-        hour12: true,
-      });
-      const userPaymentRecord = await paymentCollection.findOne({
-        _id: new ObjectId(paymentID),
-      });
-      const paymentQuery = { _id: new ObjectId(paymentID) };
-      const paymentDoc = {
-        $push: {
-          paymentHistory: {
-            date: time,
-            time: currentTime,
-            amount: parseInt(amount),
-          },
-        },
-        $set: {
-          rent: 0,
-          due: 0,
-        },
-      };
-      const paymentResult = await paymentCollection.updateOne(
-        paymentQuery,
-        paymentDoc
-      );
-      res.json(paymentResult);
-      console.log(paymentResult);
-    });
+    // // for getting all payments
+    // //ISSUE: SETS ALL DUE TO 0
+    // app.put("/payments", async (req, res) => {
+    //   const paymentID = req.body.id;
+    //   const amount = req.body.amount;
+    //   const paymentType = req.body.amount;
+    //   let time = new Date();
+    //   const currentTime = time.toLocaleString("en-US", {
+    //     hour: "numeric",
+    //     minute: "numeric",
+    //     hour12: true,
+    //   });
+    //   const userPaymentRecord = await paymentCollection.findOne({
+    //     _id: new ObjectId(paymentID),
+    //   });
+    //   const paymentQuery = { _id: new ObjectId(paymentID) };
+    //   const paymentDoc = {
+    //     $push: {
+    //       paymentHistory: {
+    //         date: time,
+    //         time: currentTime,
+    //         amount: parseInt(amount),
+    //       },
+    //     },
+    //     $set: {
+    //       rent: 0,
+    //       due: 0,
+    //     },
+    //   };
+    //   const paymentResult = await paymentCollection.updateOne(
+    //     paymentQuery,
+    //     paymentDoc
+    //   );
+    //   res.json(paymentResult);
+    //   console.log(paymentResult);
+    // });
 
-    // payment delete api
-    app.delete("/delete-payment/:id", async (req, res) => {
-      const query = { _id: new ObjectId(req?.params?.id) };
-      const result = await paymentCollection?.deleteOne(query);
-      res.json(result);
+    // Withdraw money
+    app.put("/withdraw/:id", async (req, res) => {
+      const withdrawMoney = await paymentCollection.updateOne(
+        { _id: new ObjectId(req?.params?.id) },
+        {
+          $set: {
+            rent: 0,
+            due: 0,
+            advance: 0,
+          },
+        }
+      );
+
+      res.json(withdrawMoney);
     });
 
     // payment post api
@@ -330,7 +339,7 @@ async function run() {
       res.json(notices);
     });
 
-    // room delete api
+    // Delete Notice
     app.delete("/delete-notice/:id", async (req, res) => {
       const query = { _id: new ObjectId(req?.params?.id) };
       const result = await noticeCollection?.deleteOne(query);
@@ -363,7 +372,7 @@ async function run() {
 
         const userFilter = { _id: new ObjectId(userId) };
         const userDoc = {
-          $set: { room: "", bookedOn: "", bookedTill: "" },
+          $set: { room: "" },
         };
         const updateUser = await usersCollection.updateOne(userFilter, userDoc);
 
@@ -379,7 +388,7 @@ async function run() {
 
         const userFilter = { _id: new ObjectId(userId) };
         const userDoc = {
-          $set: { room: "", bookedOn: "", bookedTill: "" },
+          $set: { room: "" },
         };
         const updateUser = await usersCollection.updateOne(userFilter, userDoc);
 
@@ -1171,8 +1180,9 @@ async function run() {
     });
 
     //SSL Commerz
-    const tran_id = new ObjectId().toString();
+
     app.post("/order", async (req, res) => {
+      const tran_id = new ObjectId().toString();
       const reqBody = req.body;
       const data = {
         total_amount: reqBody.invoice,
