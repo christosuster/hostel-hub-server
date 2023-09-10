@@ -1203,7 +1203,7 @@ async function run() {
         tran_id: tran_id, // use unique tran_id for each api call
         success_url: `http://localhost:5000/order/success/${tran_id}`,
         fail_url: `http://localhost:5000/order/fail/${tran_id}`,
-        cancel_url: "http://localhost:3030/cancel",
+        cancel_url: "https://hostel-hub-client.vercel.app/",
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
@@ -1251,10 +1251,12 @@ async function run() {
       });
 
       if (order.reqBody.productCategory == "Payment") {
-        res.redirect("http://localhost:3000/dashboard/payment");
+        res.redirect("https://hostel-hub-client.vercel.app/dashboard/payment");
       }
       if (order.reqBody.productCategory == "Room Booking") {
-        res.redirect(`http://localhost:3000/dashboard/rooms/bookRoom`);
+        res.redirect(
+          `https://hostel-hub-client.vercel.app/dashboard/rooms/bookRoom`
+        );
       }
     });
 
@@ -1377,7 +1379,7 @@ async function run() {
         }
       );
 
-      res.redirect("http://localhost:3000/dashboard");
+      res.redirect("https://hostel-hub-client.vercel.app/dashboard");
     });
   } finally {
     // await client.close()
@@ -1386,7 +1388,7 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send(`<h1>Universal Hostel Server Running</h1>`);
+  res.send(`<h1>Hostel Hub Server Running</h1>`);
 });
 
 app.listen(port, () => {
