@@ -162,9 +162,15 @@ async function run() {
 
       const currentUser = await usersCollection.findOne({ email: user.email });
 
+      const currentPayment = await usersCollection.findOne({
+        email: user.email,
+      });
+
       if (
-        currentUser &&
-        (currentUser?.room == "" || Object.keys(currentUser?.room).length == 0)
+        currentUser?._id &&
+        (currentUser?.room == "" ||
+          Object.keys(currentUser?.room).length == 0) &&
+        currentPayment?.advance == 0
       ) {
         const filter = { email: user.email };
         const updateDoc = { $set: { role: "admin" } };
@@ -312,12 +318,22 @@ async function run() {
 
     // Withdraw money
     app.put("/withdraw/:id", async (req, res) => {
+      const withdrawAccount = await paymentCollection.findOne({
+        _id: new ObjectId(req?.params?.id),
+      });
+
+      let dueAmount =
+        parseInt(withdrawAccount?.advance) - parseInt(withdrawAccount?.due);
+      if (dueAmount > 0) {
+        dueAmount = 0;
+      }
+
       const withdrawMoney = await paymentCollection.updateOne(
         { _id: new ObjectId(req?.params?.id) },
         {
           $set: {
             rent: 0,
-            due: 0,
+            due: dueAmount,
             advance: 0,
           },
         }
@@ -347,6 +363,7 @@ async function run() {
       console.log(result);
     });
 
+    //Cancel room
     app.put("/cancelRoom", async (req, res) => {
       const userId = req.body.currentUser;
       const roomId = req.body.roomId;
@@ -395,23 +412,6 @@ async function run() {
         res.json(updateUser);
       }
 
-      // allMeals.map((mealItem) => {
-      //   mealItem.bookedBy.map(async (e) => {
-      //     if (e.uid == userId) {
-      //       const newBookedBy = mealItem.bookedBy.filter((element) => {
-      //         return element.uid != userId;
-      //       });
-      //       const mealFilter = {
-      //         _id: new ObjectId(mealItem._id),
-      //         "bookedBy.uid": userId,
-      //       };
-      //       const mealDoc = { $set: { bookedBy: newBookedBy } };
-
-      //       const result = await mealCollection.updateOne(mealFilter, mealDoc);
-      //     }
-      //   });
-      // });
-
       allMeals.map(async (mealItem) => {
         const newBookedBy = mealItem.bookedBy.filter((element) => {
           return element.uid != userId;
@@ -426,7 +426,7 @@ async function run() {
 
       const cancelUserMeal = await usersCollection.updateOne(
         { _id: new ObjectId(userId) },
-        { $set: { mealPlan: [], confirmedMealPlan: [] } }
+        { $set: { mealPlan: [] } }
       );
     });
 
@@ -499,7 +499,7 @@ async function run() {
     });
 
     // Repeated meal selection and room booking
-    const newJob = nodeCron.schedule("0 0 0 * * *", async () => {
+    const newJob = nodeCron.schedule("0 17 3 * * *", async () => {
       let meals = await mealCollection.find({}).toArray();
       const rooms = await roomCollection.find({}).toArray();
       const allUsers = await usersCollection.find({ role: "user" }).toArray();
@@ -751,9 +751,9 @@ async function run() {
 
           //Update Dues
           let mealCost =
-            parseInt(user?.mealPlan[0]?.cost) +
-            parseInt(user?.mealPlan[1]?.cost) +
-            parseInt(user?.mealPlan[2]?.cost);
+            (parseInt(user?.mealPlan[0]?.cost) || 0) +
+            (parseInt(user?.mealPlan[1]?.cost) || 0) +
+            (parseInt(user?.mealPlan[2]?.cost) || 0);
           mealCost = mealCost || 0;
           const now = new Date();
 
@@ -833,6 +833,19 @@ async function run() {
               }
             );
           }
+        }
+        if (
+          (Object.keys(user.room).length == 0 || user.room == "") &&
+          user?.confirmedMealPlan
+        ) {
+          const clearConfirmedMeal = await usersCollection.updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                confirmedMealPlan: [],
+              },
+            }
+          );
         }
       });
 
@@ -1325,6 +1338,10 @@ async function run() {
           {
             $push: {
               paymentHistory: paymentHistoryItem,
+            },
+            $set: {
+              advance: 5000,
+              due: 0,
             },
           }
         );
