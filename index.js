@@ -498,9 +498,10 @@ async function run() {
       }
     });
 
-    const keepServerAlive= nodeCron.schedule("* */5 * * * *",async()=>{
-      console.log("restarted at ", Date());
-    });
+    
+    // const keepServerAlive= nodeCron.schedule("* */5 * * * *",async()=>{
+    //   console.log("restarted at ", Date());
+    // });
 
     // Repeated meal selection and room booking
     const newJob = nodeCron.schedule("0 0 0 * * *", async () => {
