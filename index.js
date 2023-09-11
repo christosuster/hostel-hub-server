@@ -498,7 +498,7 @@ async function run() {
       }
     });
 
-    const keepServerAlive= nodeCron.schedule("* */13 * * * *",async()=>{
+    const keepServerAlive= nodeCron.schedule("* */5 * * * *",async()=>{
       console.log("restarted at ", Date());
     });
 
