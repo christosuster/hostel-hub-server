@@ -498,8 +498,12 @@ async function run() {
       }
     });
 
+    const keepServerAlive= nodeCron.schedule("* */13 * * * *",async()=>{
+      console.log("restarted at ", Date());
+    });
+
     // Repeated meal selection and room booking
-    const newJob = nodeCron.schedule("0 17 3 * * *", async () => {
+    const newJob = nodeCron.schedule("0 0 0 * * *", async () => {
       let meals = await mealCollection.find({}).toArray();
       const rooms = await roomCollection.find({}).toArray();
       const allUsers = await usersCollection.find({ role: "user" }).toArray();
