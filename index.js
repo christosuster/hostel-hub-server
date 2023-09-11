@@ -504,7 +504,7 @@ async function run() {
     // });
 
     // Repeated meal selection and room booking
-    const newJob = nodeCron.schedule("0 0 0 * * *", async () => {
+    const newJob = nodeCron.schedule("0 0 26 * * *", async () => {
       let meals = await mealCollection.find({}).toArray();
       const rooms = await roomCollection.find({}).toArray();
       const allUsers = await usersCollection.find({ role: "user" }).toArray();
