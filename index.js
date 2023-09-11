@@ -504,7 +504,8 @@ async function run() {
     // });
 
     // Repeated meal selection and room booking
-    const newJob = nodeCron.schedule("0 0 26 * * *", async () => {
+    const newJob = nodeCron.schedule("0 0 40 * * *", async () => {
+      console.log("running");
       let meals = await mealCollection.find({}).toArray();
       const rooms = await roomCollection.find({}).toArray();
       const allUsers = await usersCollection.find({ role: "user" }).toArray();
@@ -930,6 +931,8 @@ async function run() {
       //     }
       //   });
       // });
+    },{
+      timezone:"Asia/Dhaka"
     });
 
     //Select Meal
