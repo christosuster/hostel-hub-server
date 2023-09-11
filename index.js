@@ -504,7 +504,7 @@ async function run() {
     // });
 
     // Repeated meal selection and room booking
-    const newJob = nodeCron.schedule("0 0 40 * * *", async () => {
+    const newJob = nodeCron.schedule("0 0 45 * * *", async () => {
       console.log("running");
       let meals = await mealCollection.find({}).toArray();
       const rooms = await roomCollection.find({}).toArray();
@@ -931,9 +931,10 @@ async function run() {
       //     }
       //   });
       // });
-    },{
-      timezone:"Asia/Dhaka"
-    });
+    }, {
+    scheduled: true,
+    timezone: "Asia/Dhaka"
+  });
 
     //Select Meal
     app.put("/meals", async (req, res) => {
