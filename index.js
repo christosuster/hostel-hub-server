@@ -504,7 +504,7 @@ async function run() {
 
     // Repeated meal selection and room booking
     const newJob = nodeCron.schedule(
-      "0 0 0 * * *",
+      "0 18 0 * * *",
       async () => {
         console.log("running");
         let meals = await mealCollection.find({}).toArray();
@@ -512,7 +512,7 @@ async function run() {
         const allUsers = await usersCollection.find({ role: "user" }).toArray();
         var tempDate = new Date();
         const now = new Date();
-        now.setHours(6 + tempDate.getHours());
+        now.setHours(6 + now.getHours());
 
         // tempDate.setHours(0, 0, 0, 0);
         tempDate.setHours(6 + tempDate.getHours(), 0, 0, 0);
@@ -686,7 +686,7 @@ async function run() {
         //Cancel user's meal plan if due exists for 10 days
         users.map(async (user) => {
           const date1 = new Date();
-          date1.setHours(6 + tempDate.getHours());
+          date1.setHours(6 + date1.getHours());
 
           if (user?.mealPlan && !user?.room == "") {
             const roomBookedTill = new Date(user.bookedTill);
@@ -738,7 +738,7 @@ async function run() {
 
         meals = await mealCollection.find({}).toArray();
         const timeRightNow = new Date();
-        timeRightNow.setHours(6 + tempDate.getHours());
+        timeRightNow.setHours(6 + timeRightNow.getHours());
 
         //New Update Meals
 
@@ -770,7 +770,7 @@ async function run() {
               (parseInt(user?.mealPlan[2]?.cost) || 0);
             mealCost = mealCost || 0;
             const now = new Date();
-            now.setHours(6 + tempDate.getHours());
+            now.setHours(6 + now.getHours());
 
             if (mealCost > 0) {
               const newDue = parseInt(userPayment.due) + mealCost;
@@ -1289,7 +1289,7 @@ async function run() {
       // tempDate.setHours(0, 0, 0, 0);
       tempDate.setHours(6 + tempDate.getHours(), 0, 0, 0);
 
-      now.setHours(6 + tempDate.getHours());
+      now.setHours(6 + now.getHours());
 
       var today = new Date(tempDate.getTime());
       tempDate.setDate(tempDate.getDate() + 1);
