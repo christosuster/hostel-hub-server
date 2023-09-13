@@ -440,7 +440,7 @@ async function run() {
       });
 
       var tempDate = new Date();
-      tempDate.setHours(0, 0, 0, 0);
+      tempDate.setHours(6 + tempDate.getHours(), 0, 0, 0);
       var today = new Date(tempDate.getTime());
       tempDate.setDate(tempDate.getDate() + 1);
       var tomorrow = new Date(tempDate.getTime());
@@ -498,443 +498,454 @@ async function run() {
       }
     });
 
-    
     // const keepServerAlive= nodeCron.schedule("* */5 * * * *",async()=>{
     //   console.log("restarted at ", Date());
     // });
 
     // Repeated meal selection and room booking
-    const newJob = nodeCron.schedule("0 0 0 * * *", async () => {
-      console.log("running");
-      let meals = await mealCollection.find({}).toArray();
-      const rooms = await roomCollection.find({}).toArray();
-      const allUsers = await usersCollection.find({ role: "user" }).toArray();
-      var tempDate = new Date();
-      const now = new Date();
-      tempDate.setHours(0, 0, 0, 0);
-      var today = new Date(tempDate.getTime());
-      tempDate.setDate(tempDate.getDate() + 1);
-      var tomorrow = new Date(tempDate.getTime());
-      var oneMonth = new Date(today.getTime());
-      oneMonth.setMonth(today.getMonth() + 1);
+    const newJob = nodeCron.schedule(
+      "0 0 0 * * *",
+      async () => {
+        console.log("running");
+        let meals = await mealCollection.find({}).toArray();
+        const rooms = await roomCollection.find({}).toArray();
+        const allUsers = await usersCollection.find({ role: "user" }).toArray();
+        var tempDate = new Date();
+        const now = new Date();
+        now.setHours(6 + tempDate.getHours());
 
-      rooms.map(async (room) => {
-        const tmpDate = new Date(room?.bookedTill);
+        // tempDate.setHours(0, 0, 0, 0);
+        tempDate.setHours(6 + tempDate.getHours(), 0, 0, 0);
+        var today = new Date(tempDate.getTime());
+        tempDate.setDate(tempDate.getDate() + 1);
+        var tomorrow = new Date(tempDate.getTime());
+        var oneMonth = new Date(today.getTime());
+        oneMonth.setMonth(today.getMonth() + 1);
 
-        //Private room renewal
-        if (
-          room.category == "Business" &&
-          room.bookedBy != "" &&
-          today.getTime() > tmpDate.getTime()
-        ) {
-          console.log("Private");
-          const roomId = room._id;
-          const userId = room.bookedBy;
-          const userPaymentRecord = await paymentCollection.findOne({
-            uid: userId,
-          });
+        rooms.map(async (room) => {
+          const tmpDate = new Date(room?.bookedTill);
 
-          //Update room booking date
-          const roomFilter = { _id: new ObjectId(roomId) };
-          const roomDoc = {
-            $set: {
-              bookedBy: userId,
-              bookedOn: room.bookedOn,
-              bookedTill: oneMonth,
-            },
-          };
-          const updateRoom = await roomCollection.updateOne(
-            roomFilter,
-            roomDoc
-          );
-
-          //Update room booking date to user
-          const userFilter = { _id: new ObjectId(userId) };
-          const userDoc = {
-            $set: {
-              room: room,
-              bookedOn: room.bookedOn,
-              bookedTill: oneMonth,
-            },
-          };
-          const updateUser = await usersCollection.updateOne(
-            userFilter,
-            userDoc
-          );
-
-          //Add rent to payment collection
-          const paymentQuery = { uid: userId };
-          const paymentDoc = {
-            $set: {
-              due: parseInt(userPaymentRecord?.due) + parseInt(room.cost),
-            },
-          };
-          const paymentResult = await paymentCollection.updateOne(
-            paymentQuery,
-            paymentDoc
-          );
-
-          //Add invoice to payment history
-          const paymentHistory = {
-            date: now.toLocaleDateString(),
-            time: now.toLocaleTimeString(),
-            amount: room.cost,
-            type: "Rent",
-          };
-          const paymentHistoryResult = await paymentCollection.updateOne(
-            { uid: userId },
-            {
-              $push: {
-                paymentHistory: paymentHistory,
-              },
-            }
-          );
-
-          //Shared room renewal
-        } else if (room.category == "Economic" && room.bookedBy.length > 0) {
-          const roomId = room._id;
-
-          const currentRoom = await roomCollection.findOne({
-            _id: roomId,
-          });
-
-          //Selecting individual seat
-          room.bookedBy.map(async (seat) => {
-            if (today.getTime() > seat.bookedTill.getTime()) {
-              console.log("Shared");
-              const userId = seat.uid;
-              const userPaymentRecord = await paymentCollection.findOne({
-                uid: userId,
-              });
-
-              //Update booking date of each seat
-              const roomResidents = currentRoom.bookedBy.filter((resident) => {
-                return resident.uid != userId;
-              });
-
-              roomResidents.push({
-                uid: userId,
-                bookedOn: seat.bookedOn,
-                bookedTill: oneMonth,
-              });
-
-              const roomFilter = { _id: roomId };
-              const roomDoc = {
-                $set: {
-                  bookedBy: roomResidents,
-                },
-              };
-              const updateRoom = await roomCollection.updateOne(
-                roomFilter,
-                roomDoc
-              );
-
-              //Update booking date of seat user
-              const userFilter = { _id: new ObjectId(userId) };
-              const userDoc = {
-                $set: {
-                  room: room,
-                  bookedOn: seat.bookedOn,
-                  bookedTill: oneMonth,
-                },
-              };
-              const updateUser = await usersCollection.updateOne(
-                userFilter,
-                userDoc
-              );
-
-              //Add seat rent to payment collection
-              const paymentQuery = { uid: userId };
-              const paymentDoc = {
-                $set: {
-                  due: parseInt(userPaymentRecord?.due) + parseInt(room.cost),
-                },
-              };
-              const paymentResult = await paymentCollection.updateOne(
-                paymentQuery,
-                paymentDoc
-              );
-
-              //Add invoice to payment history
-              const paymentHistory = {
-                date: now.toLocaleDateString(),
-                time: now.toLocaleTimeString(),
-                amount: room.cost,
-                type: "Rent",
-              };
-              const paymentHistoryResult = await paymentCollection.updateOne(
-                { uid: userId },
-                {
-                  $push: {
-                    paymentHistory: paymentHistory,
-                  },
-                }
-              );
-            }
-          });
-        }
-      });
-
-      const users = await usersCollection.find({ role: "user" }).toArray();
-
-      //Cancel user's meal plan if due exists for 10 days
-      users.map(async (user) => {
-        const date1 = new Date();
-
-        if (user?.mealPlan && !user?.room == "") {
-          const roomBookedTill = new Date(user.bookedTill);
-          roomBookedTill.setHours(0, 0, 0, 0);
-          const roomBookedOn = new Date(user.bookedTill);
-          roomBookedOn.setHours(0, 0, 0, 0);
-          roomBookedOn.setMonth(roomBookedOn.getMonth() - 1);
-          const plus10days = new Date(roomBookedOn);
-          plus10days.setDate(roomBookedOn.getDate() + 10);
-
-          const currentUserPayment = await paymentCollection.findOne({
-            email: user.email,
-          });
-
+          //Private room renewal
           if (
-            today.getTime() > plus10days.getTime() &&
-            parseInt(currentUserPayment.advance) <=
-              parseInt(currentUserPayment.due)
+            room.category == "Business" &&
+            room.bookedBy != "" &&
+            today.getTime() > tmpDate.getTime()
           ) {
-            meals.map(async (meal) => {
-              const newBookedBy = meal.bookedBy.filter((e) => {
-                currentUserPayment.uid != e.uid;
-              });
-
-              const updateMeal = await mealCollection.updateOne(
-                { _id: meal._id },
-                {
-                  $set: {
-                    bookedBy: newBookedBy,
-                  },
-                }
-              );
-
-              //Update meal in user info
-              const tempMealPlan = [{}, {}, {}];
-              const userMealResult = await usersCollection.updateOne(
-                { _id: user._id },
-                {
-                  $set: {
-                    mealPlan: tempMealPlan,
-                    confirmedMealPlan: tempMealPlan,
-                  },
-                }
-              );
+            console.log("Private");
+            const roomId = room._id;
+            const userId = room.bookedBy;
+            const userPaymentRecord = await paymentCollection.findOne({
+              uid: userId,
             });
-          }
-        }
-      });
 
-      meals = await mealCollection.find({}).toArray();
-      const timeRightNow = new Date();
+            //Update room booking date
+            const roomFilter = { _id: new ObjectId(roomId) };
+            const roomDoc = {
+              $set: {
+                bookedBy: userId,
+                bookedOn: room.bookedOn,
+                bookedTill: oneMonth,
+              },
+            };
+            const updateRoom = await roomCollection.updateOne(
+              roomFilter,
+              roomDoc
+            );
 
-      //New Update Meals
+            //Update room booking date to user
+            const userFilter = { _id: new ObjectId(userId) };
+            const userDoc = {
+              $set: {
+                room: room,
+                bookedOn: room.bookedOn,
+                bookedTill: oneMonth,
+              },
+            };
+            const updateUser = await usersCollection.updateOne(
+              userFilter,
+              userDoc
+            );
 
-      meals.map(async (meal) => {
-        const clearMealOrders = await mealCollection.updateOne(
-          { _id: meal._id },
-          {
-            $set: {
-              bookedBy: [],
-            },
-          }
-        );
-      });
+            //Add rent to payment collection
+            const paymentQuery = { uid: userId };
+            const paymentDoc = {
+              $set: {
+                due: parseInt(userPaymentRecord?.due) + parseInt(room.cost),
+              },
+            };
+            const paymentResult = await paymentCollection.updateOne(
+              paymentQuery,
+              paymentDoc
+            );
 
-      users.map(async (user) => {
-        const userID = user._id.toString();
-        if (
-          (Object.keys(user.room).length != 0 || user.room != "") &&
-          user.mealPlan
-        ) {
-          const userPayment = await paymentCollection.findOne({
-            email: user.email,
-          });
-
-          //Update Dues
-          let mealCost =
-            (parseInt(user?.mealPlan[0]?.cost) || 0) +
-            (parseInt(user?.mealPlan[1]?.cost) || 0) +
-            (parseInt(user?.mealPlan[2]?.cost) || 0);
-          mealCost = mealCost || 0;
-          const now = new Date();
-
-          if (mealCost > 0) {
-            const newDue = parseInt(userPayment.due) + mealCost;
-
-            const newPaymentHistory = {
+            //Add invoice to payment history
+            const paymentHistory = {
               date: now.toLocaleDateString(),
               time: now.toLocaleTimeString(),
-              amount: mealCost,
-              type: "Meal Charge",
+              amount: room.cost,
+              type: "Rent",
             };
-            console.log("Meal Cost: ", mealCost);
-            const updateDue = await paymentCollection.updateOne(
-              { email: user.email },
+            const paymentHistoryResult = await paymentCollection.updateOne(
+              { uid: userId },
+              {
+                $push: {
+                  paymentHistory: paymentHistory,
+                },
+              }
+            );
+
+            //Shared room renewal
+          } else if (room.category == "Economic" && room.bookedBy.length > 0) {
+            const roomId = room._id;
+
+            const currentRoom = await roomCollection.findOne({
+              _id: roomId,
+            });
+
+            //Selecting individual seat
+            room.bookedBy.map(async (seat) => {
+              if (today.getTime() > seat.bookedTill.getTime()) {
+                console.log("Shared");
+                const userId = seat.uid;
+                const userPaymentRecord = await paymentCollection.findOne({
+                  uid: userId,
+                });
+
+                //Update booking date of each seat
+                const roomResidents = currentRoom.bookedBy.filter(
+                  (resident) => {
+                    return resident.uid != userId;
+                  }
+                );
+
+                roomResidents.push({
+                  uid: userId,
+                  bookedOn: seat.bookedOn,
+                  bookedTill: oneMonth,
+                });
+
+                const roomFilter = { _id: roomId };
+                const roomDoc = {
+                  $set: {
+                    bookedBy: roomResidents,
+                  },
+                };
+                const updateRoom = await roomCollection.updateOne(
+                  roomFilter,
+                  roomDoc
+                );
+
+                //Update booking date of seat user
+                const userFilter = { _id: new ObjectId(userId) };
+                const userDoc = {
+                  $set: {
+                    room: room,
+                    bookedOn: seat.bookedOn,
+                    bookedTill: oneMonth,
+                  },
+                };
+                const updateUser = await usersCollection.updateOne(
+                  userFilter,
+                  userDoc
+                );
+
+                //Add seat rent to payment collection
+                const paymentQuery = { uid: userId };
+                const paymentDoc = {
+                  $set: {
+                    due: parseInt(userPaymentRecord?.due) + parseInt(room.cost),
+                  },
+                };
+                const paymentResult = await paymentCollection.updateOne(
+                  paymentQuery,
+                  paymentDoc
+                );
+
+                //Add invoice to payment history
+                const paymentHistory = {
+                  date: now.toLocaleDateString(),
+                  time: now.toLocaleTimeString(),
+                  amount: room.cost,
+                  type: "Rent",
+                };
+                const paymentHistoryResult = await paymentCollection.updateOne(
+                  { uid: userId },
+                  {
+                    $push: {
+                      paymentHistory: paymentHistory,
+                    },
+                  }
+                );
+              }
+            });
+          }
+        });
+
+        const users = await usersCollection.find({ role: "user" }).toArray();
+
+        //Cancel user's meal plan if due exists for 10 days
+        users.map(async (user) => {
+          const date1 = new Date();
+          date1.setHours(6 + tempDate.getHours());
+
+          if (user?.mealPlan && !user?.room == "") {
+            const roomBookedTill = new Date(user.bookedTill);
+            roomBookedTill.setHours(0, 0, 0, 0);
+            const roomBookedOn = new Date(user.bookedTill);
+            roomBookedOn.setHours(0, 0, 0, 0);
+            roomBookedOn.setMonth(roomBookedOn.getMonth() - 1);
+            const plus10days = new Date(roomBookedOn);
+            plus10days.setDate(roomBookedOn.getDate() + 10);
+
+            const currentUserPayment = await paymentCollection.findOne({
+              email: user.email,
+            });
+
+            if (
+              today.getTime() > plus10days.getTime() &&
+              parseInt(currentUserPayment.advance) <=
+                parseInt(currentUserPayment.due)
+            ) {
+              meals.map(async (meal) => {
+                const newBookedBy = meal.bookedBy.filter((e) => {
+                  currentUserPayment.uid != e.uid;
+                });
+
+                const updateMeal = await mealCollection.updateOne(
+                  { _id: meal._id },
+                  {
+                    $set: {
+                      bookedBy: newBookedBy,
+                    },
+                  }
+                );
+
+                //Update meal in user info
+                const tempMealPlan = [{}, {}, {}];
+                const userMealResult = await usersCollection.updateOne(
+                  { _id: user._id },
+                  {
+                    $set: {
+                      mealPlan: tempMealPlan,
+                      confirmedMealPlan: tempMealPlan,
+                    },
+                  }
+                );
+              });
+            }
+          }
+        });
+
+        meals = await mealCollection.find({}).toArray();
+        const timeRightNow = new Date();
+        timeRightNow.setHours(6 + tempDate.getHours());
+
+        //New Update Meals
+
+        meals.map(async (meal) => {
+          const clearMealOrders = await mealCollection.updateOne(
+            { _id: meal._id },
+            {
+              $set: {
+                bookedBy: [],
+              },
+            }
+          );
+        });
+
+        users.map(async (user) => {
+          const userID = user._id.toString();
+          if (
+            (Object.keys(user.room).length != 0 || user.room != "") &&
+            user.mealPlan
+          ) {
+            const userPayment = await paymentCollection.findOne({
+              email: user.email,
+            });
+
+            //Update Dues
+            let mealCost =
+              (parseInt(user?.mealPlan[0]?.cost) || 0) +
+              (parseInt(user?.mealPlan[1]?.cost) || 0) +
+              (parseInt(user?.mealPlan[2]?.cost) || 0);
+            mealCost = mealCost || 0;
+            const now = new Date();
+            now.setHours(6 + tempDate.getHours());
+
+            if (mealCost > 0) {
+              const newDue = parseInt(userPayment.due) + mealCost;
+
+              const newPaymentHistory = {
+                date: now.toLocaleDateString(),
+                time: now.toLocaleTimeString(),
+                amount: mealCost,
+                type: "Meal Charge",
+              };
+              console.log("Meal Cost: ", mealCost);
+              const updateDue = await paymentCollection.updateOne(
+                { email: user.email },
+                {
+                  $set: {
+                    due: newDue,
+                  },
+                  $push: {
+                    paymentHistory: newPaymentHistory,
+                  },
+                }
+              );
+            }
+
+            //Add to confirmedMealPlan
+            const addToConfirmedMealPlan = await usersCollection.updateOne(
+              { _id: user._id },
               {
                 $set: {
-                  due: newDue,
-                },
-                $push: {
-                  paymentHistory: newPaymentHistory,
+                  confirmedMealPlan: user.mealPlan,
                 },
               }
             );
-          }
 
-          //Add to confirmedMealPlan
-          const addToConfirmedMealPlan = await usersCollection.updateOne(
-            { _id: user._id },
-            {
-              $set: {
-                confirmedMealPlan: user.mealPlan,
-              },
+            //Add orders to meal bookedBy array
+            if (user.mealPlan[0]?._id) {
+              const newOrder = {
+                uid: userID,
+                mealDay: today,
+              };
+              const updateBookedBy = await mealCollection.updateOne(
+                { _id: user.mealPlan[0]._id },
+                {
+                  $push: {
+                    bookedBy: newOrder,
+                  },
+                }
+              );
             }
-          );
-
-          //Add orders to meal bookedBy array
-          if (user.mealPlan[0]?._id) {
-            const newOrder = {
-              uid: userID,
-              mealDay: today,
-            };
-            const updateBookedBy = await mealCollection.updateOne(
-              { _id: user.mealPlan[0]._id },
-              {
-                $push: {
-                  bookedBy: newOrder,
-                },
-              }
-            );
-          }
-          if (user.mealPlan[1]?._id) {
-            const newOrder = {
-              uid: userID,
-              mealDay: today,
-            };
-            const updateBookedBy = await mealCollection.updateOne(
-              { _id: user.mealPlan[1]._id },
-              {
-                $push: {
-                  bookedBy: newOrder,
-                },
-              }
-            );
-          }
-          if (user.mealPlan[2]?._id) {
-            const newOrder = {
-              uid: userID,
-              mealDay: today,
-            };
-            const updateBookedBy = await mealCollection.updateOne(
-              { _id: user.mealPlan[2]._id },
-              {
-                $push: {
-                  bookedBy: newOrder,
-                },
-              }
-            );
-          }
-        }
-        if (
-          (Object.keys(user.room).length == 0 || user.room == "") &&
-          user?.confirmedMealPlan
-        ) {
-          const clearConfirmedMeal = await usersCollection.updateOne(
-            { _id: user._id },
-            {
-              $set: {
-                confirmedMealPlan: [],
-              },
+            if (user.mealPlan[1]?._id) {
+              const newOrder = {
+                uid: userID,
+                mealDay: today,
+              };
+              const updateBookedBy = await mealCollection.updateOne(
+                { _id: user.mealPlan[1]._id },
+                {
+                  $push: {
+                    bookedBy: newOrder,
+                  },
+                }
+              );
             }
-          );
-        }
-      });
+            if (user.mealPlan[2]?._id) {
+              const newOrder = {
+                uid: userID,
+                mealDay: today,
+              };
+              const updateBookedBy = await mealCollection.updateOne(
+                { _id: user.mealPlan[2]._id },
+                {
+                  $push: {
+                    bookedBy: newOrder,
+                  },
+                }
+              );
+            }
+          }
+          if (
+            (Object.keys(user.room).length == 0 || user.room == "") &&
+            user?.confirmedMealPlan
+          ) {
+            const clearConfirmedMeal = await usersCollection.updateOne(
+              { _id: user._id },
+              {
+                $set: {
+                  confirmedMealPlan: [],
+                },
+              }
+            );
+          }
+        });
 
-      //Update meals
-      // meals.map(async (meal) => {
-      //   //Selecting each meal order
-      //   meal.bookedBy.map(async (element) => {
-      //     const currentPayment = await paymentCollection.findOne({
-      //       uid: element.uid,
-      //     });
-      //     const currentUser = await usersCollection.findOne({
-      //       _id: new ObjectId(element.uid),
-      //     });
+        //Update meals
+        // meals.map(async (meal) => {
+        //   //Selecting each meal order
+        //   meal.bookedBy.map(async (element) => {
+        //     const currentPayment = await paymentCollection.findOne({
+        //       uid: element.uid,
+        //     });
+        //     const currentUser = await usersCollection.findOne({
+        //       _id: new ObjectId(element.uid),
+        //     });
 
-      //     //Check if user has room
-      //     if (Object.keys(currentUser.room).length != 0) {
-      //       var mealDate = new Date(element.mealDay.getTime());
-      //       mealDate.setHours(0, 0, 0, 0);
-      //       if (mealDate.getTime() < today.getTime()) {
-      //         console.log("due: ", currentPayment.due);
-      //         //Add meal cost to users payment
-      //         const paymentQuery = { uid: element.uid };
-      //         const newDue =
-      //           parseInt(currentPayment?.due) + parseInt(meal?.cost);
-      //         console.log("new due: ", newDue);
-      //         const paymentDoc = {
-      //           $set: {
-      //             due: newDue,
-      //           },
-      //         };
-      //         const payRes = await paymentCollection.updateOne(
-      //           paymentQuery,
-      //           paymentDoc
-      //         );
+        //     //Check if user has room
+        //     if (Object.keys(currentUser.room).length != 0) {
+        //       var mealDate = new Date(element.mealDay.getTime());
+        //       mealDate.setHours(0, 0, 0, 0);
+        //       if (mealDate.getTime() < today.getTime()) {
+        //         console.log("due: ", currentPayment.due);
+        //         //Add meal cost to users payment
+        //         const paymentQuery = { uid: element.uid };
+        //         const newDue =
+        //           parseInt(currentPayment?.due) + parseInt(meal?.cost);
+        //         console.log("new due: ", newDue);
+        //         const paymentDoc = {
+        //           $set: {
+        //             due: newDue,
+        //           },
+        //         };
+        //         const payRes = await paymentCollection.updateOne(
+        //           paymentQuery,
+        //           paymentDoc
+        //         );
 
-      //         const tmpPay = await paymentCollection.findOne({
-      //           uid: element.uid,
-      //         });
+        //         const tmpPay = await paymentCollection.findOne({
+        //           uid: element.uid,
+        //         });
 
-      //         console.log("db due:", tmpPay.due);
+        //         console.log("db due:", tmpPay.due);
 
-      //         //Update mealDay to today in meal bookedBy array
-      //         const query = {
-      //           _id: new ObjectId(meal._id),
-      //           "bookedBy.uid": element.uid,
-      //         };
-      //         const updateDoc = { $set: { "bookedBy.$.mealDay": today } };
-      //         const result = await mealCollection.updateOne(query, updateDoc);
+        //         //Update mealDay to today in meal bookedBy array
+        //         const query = {
+        //           _id: new ObjectId(meal._id),
+        //           "bookedBy.uid": element.uid,
+        //         };
+        //         const updateDoc = { $set: { "bookedBy.$.mealDay": today } };
+        //         const result = await mealCollection.updateOne(query, updateDoc);
 
-      //         //Update meal in user info
-      //         const tempMealPlan = currentUser.mealPlan;
-      //         const userMealResult = await usersCollection.updateOne(
-      //           { _id: new ObjectId(element.uid) },
-      //           {
-      //             $set: {
-      //               confirmedMealPlan: tempMealPlan,
-      //             },
-      //           }
-      //         );
+        //         //Update meal in user info
+        //         const tempMealPlan = currentUser.mealPlan;
+        //         const userMealResult = await usersCollection.updateOne(
+        //           { _id: new ObjectId(element.uid) },
+        //           {
+        //             $set: {
+        //               confirmedMealPlan: tempMealPlan,
+        //             },
+        //           }
+        //         );
 
-      //         //Add invoice to payment history
-      //         const paymentHistory = {
-      //           date: now.toLocaleDateString(),
-      //           time: now.toLocaleTimeString(),
-      //           amount: meal.cost,
-      //           type: "Meal Charge",
-      //         };
-      //         const paymentHistoryResult = await paymentCollection.updateOne(
-      //           { uid: element.uid },
-      //           {
-      //             $push: {
-      //               paymentHistory: paymentHistory,
-      //             },
-      //           }
-      //         );
-      //       }
-      //     }
-      //   });
-      // });
-    }, {
-    scheduled: true,
-    timezone: "Asia/Dhaka"
-  });
+        //         //Add invoice to payment history
+        //         const paymentHistory = {
+        //           date: now.toLocaleDateString(),
+        //           time: now.toLocaleTimeString(),
+        //           amount: meal.cost,
+        //           type: "Meal Charge",
+        //         };
+        //         const paymentHistoryResult = await paymentCollection.updateOne(
+        //           { uid: element.uid },
+        //           {
+        //             $push: {
+        //               paymentHistory: paymentHistory,
+        //             },
+        //           }
+        //         );
+        //       }
+        //     }
+        //   });
+        // });
+      },
+      {
+        scheduled: true,
+        timezone: "Asia/Dhaka",
+      }
+    );
 
     //Select Meal
     app.put("/meals", async (req, res) => {
@@ -947,7 +958,9 @@ async function run() {
       const dinner = req.body.dinner;
       const user = req.body.currentUser;
       var tempDate = new Date();
-      tempDate.setHours(0, 0, 0, 0);
+      // tempDate.setHours(0, 0, 0, 0);
+      tempDate.setHours(6 + tempDate.getHours(), 0, 0, 0);
+
       var today = new Date(tempDate.getTime());
       tempDate.setDate(tempDate.getDate() + 1);
       var tomorrow = new Date(tempDate.getTime());
@@ -1273,7 +1286,11 @@ async function run() {
     app.post("/order/success/:tran_id", async (req, res) => {
       var tempDate = new Date();
       const now = new Date();
-      tempDate.setHours(0, 0, 0, 0);
+      // tempDate.setHours(0, 0, 0, 0);
+      tempDate.setHours(6 + tempDate.getHours(), 0, 0, 0);
+
+      now.setHours(6 + tempDate.getHours());
+
       var today = new Date(tempDate.getTime());
       tempDate.setDate(tempDate.getDate() + 1);
       var tomorrow = new Date(tempDate.getTime());
