@@ -1224,6 +1224,9 @@ async function run() {
     //SSL Commerz
 
     app.post("/order", async (req, res) => {
+      const now = new Date();
+      now.setHours(6 + now.getHours());
+
       const tran_id = new ObjectId().toString();
       const reqBody = req.body;
       const data = {
@@ -1266,6 +1269,7 @@ async function run() {
           reqBody,
           paidStatus: false,
           transactionID: tran_id,
+          date: now.getTime(),
         };
 
         const result = orderCollection.insertOne(finalOrder);
