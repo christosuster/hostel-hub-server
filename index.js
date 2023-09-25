@@ -279,6 +279,13 @@ async function run() {
       res.json(payments);
     });
 
+    // for getting all orders
+    app.get("/orders", async (req, res) => {
+      const cursor = orderCollection?.find({});
+      const orders = await cursor?.toArray();
+      res.json(orders);
+    });
+
     // // for getting all payments
     // //ISSUE: SETS ALL DUE TO 0
     // app.put("/payments", async (req, res) => {
