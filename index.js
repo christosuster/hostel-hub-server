@@ -162,10 +162,11 @@ async function run() {
 
       const currentUser = await usersCollection.findOne({ email: user.email });
 
-      const currentPayment = await usersCollection.findOne({
+      const currentPayment = await paymentCollection.findOne({
         email: user.email,
       });
 
+      console.log(currentUser, currentPayment);
       if (
         currentUser?._id &&
         (currentUser?.room == "" ||
