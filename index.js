@@ -504,7 +504,7 @@ async function run() {
 
     // Repeated meal selection and room booking
     const newJob = nodeCron.schedule(
-      "0 18 0 * * *",
+      "0 0 0 * * *",
       async () => {
         console.log("running");
         let meals = await mealCollection.find({}).toArray();
@@ -1223,9 +1223,9 @@ async function run() {
         total_amount: reqBody.invoice,
         currency: "BDT",
         tran_id: tran_id, // use unique tran_id for each api call
-        success_url: `http://localhost:5000/order/success/${tran_id}`,
-        fail_url: `http://localhost:5000/order/fail/${tran_id}`,
-        cancel_url: "https://hostel-hub-client.vercel.app/",
+        success_url: `https://hostel-hub-yg4y.onrender.com/order/success/${tran_id}`,
+        fail_url: `https://hostel-hub-yg4y.onrender.com/order/fail/${tran_id}`,
+        cancel_url: "https://hostel-hub-client.vercel.app/dashboard",
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
