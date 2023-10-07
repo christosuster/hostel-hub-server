@@ -27,7 +27,7 @@ const is_live = false;
 async function run() {
   try {
     await client.connect();
-    const database = client.db("hostel-management-system");
+    const database = client.db("hostel-hub");
     const usersCollection = database.collection("users");
     const roomCollection = database.collection("rooms");
     const mealCollection = database.collection("meals");
